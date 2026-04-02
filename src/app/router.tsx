@@ -6,6 +6,7 @@ import IncidentsPage from "../features/admin/pages/IncidentsPage";
 import RespondersPage from "../features/admin/pages/RespondersPage";
 import DepartmentsPage from "../features/admin/pages/DepartmentsPage";
 import OfflineLogsPage from "../features/admin/pages/OfflineLogsPage";
+import ProtectedRoute from "../features/auth/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
@@ -14,7 +15,10 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <AppLayout />,
+    element: 
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>,
     children: [
       {
         index: true,
