@@ -1,10 +1,20 @@
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "../components/layout/AppLayout";
 import LoginPage from "../pages/LoginPage";
-import DashboardPage from "../pages/DashboardPage";
-import IncidentsPage from "../features/admin/pages/IncidentsPage";
-import RespondersPage from "../features/admin/pages/RespondersPage";
+
+import { mockUser } from "../mockUser";
+
+// ERU pages
+import EruDashboard from "../features/admin/pages/eru/EruDashboard";
+import IncidentsPage from "../features/admin/pages/eru/IncidentsPage";
+
+// Substation pages
+import SubstationDashboard from "../features/admin/pages/substation/SubstationDashboard";
+import SubstationIncidentsPage from "../features/admin/pages/substation/SubstationIncidentsPage";
+
+// Shared pages (still outside role folders)
 import DepartmentsPage from "../features/admin/pages/DepartmentsPage";
+import RespondersPage from "../features/admin/pages/RespondersPage";
 import OfflineLogsPage from "../features/admin/pages/OfflineLogsPage";
 
 export const router = createBrowserRouter([
@@ -18,11 +28,21 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <DashboardPage />,
+        element:
+          mockUser.role === "ERU_ADMIN" ? (
+            <EruDashboard />
+          ) : (
+            <SubstationDashboard />
+          ),
       },
       {
-        path: "incidents",  
-        element: <IncidentsPage />,
+        path: "incidents",
+        element:
+          mockUser.role === "ERU_ADMIN" ? (
+            <IncidentsPage />
+          ) : (
+            <SubstationIncidentsPage />
+          ),
       },
       {
         path: "responders",
@@ -35,7 +55,7 @@ export const router = createBrowserRouter([
       {
         path: "offline-logs",
         element: <OfflineLogsPage />,
-      }
+      },
     ],
   },
-]); 
+]);
