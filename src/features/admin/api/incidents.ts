@@ -1,9 +1,6 @@
+import { api } from "@/api/axios";
+
 export const fetchIncidents = async () => {
-  const res = await fetch("http://localhost:3000/api/incidents");
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch incidents");
-  }
-
-  return res.json();
+  const res = await api.get("/api/incidents");
+  return res.data.data ?? res.data;
 };
