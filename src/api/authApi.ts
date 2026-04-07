@@ -8,15 +8,13 @@ export interface AdminLoginPayload {
 export interface AdminLoginResponse {
   success: boolean;
   message: string;
+  token: string;
   data: {
-    token: string;
-    admin: {
-      admin_id: number;
-      dept_id: number;
-      first_name: string;
-      last_name: string;
-      contact_no: string;
-    };
+    admin_id: number;
+    dept_id: number;
+    first_name: string;
+    last_name: string;
+    contact_no: string;
   };
 }
 
