@@ -1,8 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import AppLayout from "../components/layout/AppLayout";
 import LoginPage from "../pages/LoginPage";
-
-import { mockUser } from "../mockUser";
+import { storage } from "../utils/storage";
 
 // ERU pages
 import EruDashboard from "../features/admin/pages/eru/EruDashboard";
@@ -12,11 +11,21 @@ import IncidentsPage from "../features/admin/pages/eru/IncidentsPage";
 import SubstationDashboard from "../features/admin/pages/substation/SubstationDashboard";
 import SubstationIncidentsPage from "../features/admin/pages/substation/SubstationIncidentsPage";
 
-// Shared pages (still outside role folders)
+// Shared pages
 import DepartmentsPage from "../features/admin/pages/DepartmentsPage";
 import RespondersPage from "../features/admin/pages/RespondersPage";
 import OfflineLogsPage from "../features/admin/pages/OfflineLogsPage";
 import ProtectedRoute from "../features/auth/ProtectedRoute";
+
+function DashboardByRole() {
+  const user = storage.getUser();
+  return user?.role === "ERU_ADMIN" ? <EruDashboard /> : <SubstationDashboard />;
+}
+
+function IncidentsByRole() {
+  const user = storage.getUser();
+  return user?.role === "ERU_ADMIN" ? <IncidentsPage /> : <SubstationIncidentsPage />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -25,28 +34,19 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: 
+    element: (
       <ProtectedRoute>
         <AppLayout />
-      </ProtectedRoute>,
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,
-        element:
-          mockUser.role === "ERU_ADMIN" ? (
-            <EruDashboard />
-          ) : (
-            <SubstationDashboard />
-          ),
+        element: <DashboardByRole />,
       },
       {
         path: "incidents",
-        element:
-          mockUser.role === "ERU_ADMIN" ? (
-            <IncidentsPage />
-          ) : (
-            <SubstationIncidentsPage />
-          ),
+        element: <IncidentsByRole />,
       },
       {
         path: "responders",
