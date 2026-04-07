@@ -18,19 +18,18 @@ function LoginPage() {
     setIsLoading(true);
 
     try {
-      const data = await loginAdmin({
-        contact_no: contactNo,
-        password,
-      });
+    const result = await loginAdmin({
+      contact_no: contactNo,
+      password,
+    });
 
-      if (!data.data?.token) {
-        throw new Error("No token received from server.");
-      }
+    if (!result.token) {
+      throw new Error("No token received from server.");
+    }
 
-      storage.setToken(data.data.token);
-      storage.setRole("admin");
-
-      navigate("/", { replace: true });
+    storage.setToken(result.token);
+    storage.setRole("admin");
+    navigate("/", { replace: true });
     } catch (error: any) {
       setErrorMessage(
         error?.response?.data?.message || error.message || "Login failed."
