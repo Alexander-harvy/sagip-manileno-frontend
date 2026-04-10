@@ -1,8 +1,8 @@
 type Column = {
   header: string;
   accessor: string;
+  cell?: (row: any) => React.ReactNode;
 };
-
 type TableRow = Record<string, unknown>;
 
 type TableProps = {
@@ -29,8 +29,10 @@ export function Table({ columns, data }: TableProps) {
             <tr key={index} className="border-t">
               {columns.map((col) => (
                 <td key={col.accessor} className="p-3">
-                  {row[col.accessor] as React.ReactNode}
-                </td>
+                {col.cell
+                  ? col.cell(row)
+                  : (row[col.accessor] as React.ReactNode)}
+              </td>
               ))}
             </tr>
           ))}

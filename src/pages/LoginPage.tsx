@@ -28,7 +28,14 @@ function LoginPage() {
     }
 
     storage.setToken(result.token);
-    storage.setRole("admin");
+
+    storage.setUser({
+      admin_id: result.admin.admin_id,
+      first_name: result.admin.first_name,
+      last_name: result.admin.last_name,
+      dept_id: result.admin.dept_id,
+      role: result.admin.role,
+    });
     navigate("/", { replace: true });
     } catch (error: any) {
       setErrorMessage(

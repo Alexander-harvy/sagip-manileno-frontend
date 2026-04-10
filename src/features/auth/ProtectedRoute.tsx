@@ -7,17 +7,12 @@ interface ProtectedRouteProps {
 
 function ProtectedRoute({ children }: ProtectedRouteProps) {
   const token = storage.getToken();
-  const role = storage.getRole();
+  const user = storage.getUser();
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (role !== "admin") {
+  if (!token || !user) {
     return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
 }
-
 export default ProtectedRoute;

@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
-import { mockUser } from "../../mockUser";
+import { storage } from "../../utils/storage";
 
 function Sidebar() {
+  const user = storage.getUser();
+
   const menuByRole = {
     ERU_ADMIN: [
       { label: "Dashboard", path: "/" },
@@ -11,7 +13,6 @@ function Sidebar() {
       { label: "Offline Logs", path: "/offline-logs" },
       { label: "Settings", path: "/settings" },
     ],
-
     SUBSTATION_ADMIN: [
       { label: "Dashboard", path: "/" },
       { label: "Incidents", path: "/incidents" },
@@ -19,7 +20,7 @@ function Sidebar() {
     ],
   };
 
-  const menuItems = menuByRole[mockUser.role];
+  const menuItems = menuByRole[user?.role || "ERU_ADMIN"];
 
   return (
     <aside className="w-64 bg-slate-900 px-4 py-6 text-white">
