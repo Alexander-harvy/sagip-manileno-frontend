@@ -39,7 +39,7 @@ export default function IncidentsPage() {
 
   const { data: departments = [] } = useDepartments();
   const { data: responders = [] } = useResponders();
-  
+  console.log("responders:", responders);
 
   const assignMutation = useMutation({
     mutationFn: async () => {
