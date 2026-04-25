@@ -7,7 +7,7 @@ import { storage } from "../utils/storage";
 function LoginPage() {
   const navigate = useNavigate();
 
-  const [contactNo, setContactNo] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,25 +18,28 @@ function LoginPage() {
     setIsLoading(true);
 
     try {
-    const result = await loginAdmin({
-      contact_no: contactNo,
-      password,
-    });
+      const result = await loginAdmin({
+        username,
+        password,
+      });
 
-    if (!result.token) {
-      throw new Error("No token received from server.");
-    }
+      if (!result.token) {
+        throw new Error("No token received from server.");
+      }
 
-    storage.setToken(result.token);
+      storage.setToken(result.token);
 
-    storage.setUser({
-      admin_id: result.admin.admin_id,
-      first_name: result.admin.first_name,
-      last_name: result.admin.last_name,
-      dept_id: result.admin.dept_id,
-      role: result.admin.role,
-    });
-    navigate("/", { replace: true });
+      storage.setUser({
+        admin_id: result.admin.admin_id,
+        first_name: result.admin.first_name,
+        last_name: result.admin.last_name,
+        dept_id: result.admin.dept_id,
+        substation_id: result.admin.substation_id,
+        username: result.admin.username,
+        role: result.admin.role,
+      });
+
+      navigate("/", { replace: true });
     } catch (error: any) {
       setErrorMessage(
         error?.response?.data?.message || error.message || "Login failed."
@@ -57,13 +60,13 @@ function LoginPage() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Contact Number
+              Username
             </label>
             <input
               type="text"
-              value={contactNo}
-              onChange={(e) => setContactNo(e.target.value)}
-              placeholder="Enter contact number"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
               className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-slate-500"
             />
           </div>
