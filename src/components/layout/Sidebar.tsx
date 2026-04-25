@@ -7,7 +7,7 @@ function Sidebar() {
   const menuByRole = {
     ERU_ADMIN: [
       { label: "Dashboard", path: "/" },
-      { label: "Incidents", path: "/incidents" },
+      { label: "Assigned Incidents", path: "/incidents" },
       { label: "Responders", path: "/responders" },
       { label: "Departments", path: "/departments" },
       { label: "Offline Logs", path: "/offline-logs" },
@@ -15,7 +15,7 @@ function Sidebar() {
     ],
     SUBSTATION_ADMIN: [
       { label: "Dashboard", path: "/" },
-      { label: "Incidents", path: "/incidents" },
+      { label: "Assigned Incidents", path: "/incidents" },
       { label: "Responders", path: "/responders" },
     ],
   };

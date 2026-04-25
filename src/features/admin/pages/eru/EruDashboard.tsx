@@ -10,8 +10,6 @@ import { api } from "@/api/axios";
 import { fetchIncidents } from "../../api/incidents";
 import { fetchSubstations } from "../../api/substations";
 
-
-
 type IncidentRow = {
   incident_id: number;
   incident_type: string;
@@ -38,6 +36,7 @@ export default function EruDashboard() {
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedSubstation, setSelectedSubstation] = useState("");
+  const [assignError, setAssignError] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -51,8 +50,6 @@ export default function EruDashboard() {
     queryFn: fetchSubstations,
   });
 
-  console.log("SUBSTATIONS:", substations);
-
   const incidents: IncidentRow[] = useMemo(() => {
     if (!data) return [];
 
@@ -64,7 +61,7 @@ export default function EruDashboard() {
       longitude: item.longitude,
       location_name: item.location_name,
       source: item.source,
-      status: item.status,
+      status: item.status || "pending",
       created_at: item.created_at ?? item.reported_at,
       substation_id: item.substation_id ?? null,
       substation_name: item.substation_name ?? null,
@@ -99,38 +96,60 @@ export default function EruDashboard() {
     };
   }, [incidents]);
 
-  const recentIncidents = incidents.slice(0, 5);
+  const unassignedIncidents = incidents.filter(
+  (incident) =>
+    !incident.substation_id &&
+    incident.status?.toLowerCase() !== "assigned_to_substation" &&
+    incident.status?.toLowerCase() !== "assigned"
+);
+
+const recentIncidents = unassignedIncidents.slice(0, 10);
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedIncident?.incident_id || !selectedSubstation) {
+      if (!selectedIncident?.incident_id) {
+        throw new Error("No incident selected.");
+      }
+
+      if (!selectedSubstation) {
         throw new Error("Please select a substation.");
       }
 
-      const res = await api.post("/api/admin/assign", {
+      const payload = {
         incident_id: selectedIncident.incident_id,
         substation_id: Number(selectedSubstation),
-      });
+      };
 
+      const res = await api.post("/api/incidents/assign", payload);
       return res.data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["incidents"] });
       setIsAssignOpen(false);
       setSelectedIncident(null);
       setSelectedSubstation("");
-      queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      setAssignError("");
+    },
+    onError: (error: any) => {
+      setAssignError(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to assign incident."
+      );
     },
   });
 
   const handleOpenAssign = (incident: IncidentRow) => {
     setSelectedIncident(incident);
     setSelectedSubstation("");
+    setAssignError("");
     setIsAssignOpen(true);
   };
 
   const handleCloseAssign = () => {
     setSelectedIncident(null);
     setSelectedSubstation("");
+    setAssignError("");
     setIsAssignOpen(false);
   };
 
@@ -230,11 +249,8 @@ export default function EruDashboard() {
                 ))}
               </select>
 
-              {assignMutation.isError && (
-                <p className="mt-2 text-sm text-red-500">
-                  {(assignMutation.error as Error)?.message ||
-                    "Failed to assign incident."}
-                </p>
+              {assignError && (
+                <p className="mt-2 text-sm text-red-500">{assignError}</p>
               )}
             </div>
 
