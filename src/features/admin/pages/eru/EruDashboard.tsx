@@ -1,9 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import PageState from "@/components/common/PageState";
 import { StatusBadge } from "@/components/layout/ui/StatusBadge";
 import { api } from "@/api/axios";
@@ -22,14 +18,12 @@ type IncidentRow = {
   created_at?: string;
   substation_id?: number | null;
   substation_name?: string | null;
+  reporter_name?: string;
 };
 
 type SubstationRow = {
   substation_id: number;
-  department_id: number;
   substation_name: string;
-  address?: string;
-  is_active?: number;
 };
 
 export default function EruDashboard() {
@@ -43,6 +37,9 @@ export default function EruDashboard() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["incidents"],
     queryFn: fetchIncidents,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   const { data: substations = [] } = useQuery({
@@ -65,62 +62,30 @@ export default function EruDashboard() {
       created_at: item.created_at ?? item.reported_at,
       substation_id: item.substation_id ?? null,
       substation_name: item.substation_name ?? null,
+      reporter_name: `${item.first_name} ${item.last_name}`,
     }));
   }, [data]);
 
   const stats = useMemo(() => {
-    const total = incidents.length;
-
-    const pending = incidents.filter(
-      (incident) =>
-        incident.status?.toLowerCase() === "pending" ||
-        incident.status?.toLowerCase() === "new"
-    ).length;
-
-    const assigned = incidents.filter(
-      (incident) =>
-        incident.status?.toLowerCase() === "assigned" ||
-        incident.status?.toLowerCase() === "ongoing" ||
-        incident.status?.toLowerCase() === "assigned_to_substation"
-    ).length;
-
-    const resolved = incidents.filter(
-      (incident) => incident.status?.toLowerCase() === "resolved"
-    ).length;
-
     return {
-      total,
-      pending,
-      assigned,
-      resolved,
+      total: incidents.length,
+      pending: incidents.filter((i) => !i.substation_id).length,
+      assigned: incidents.filter((i) => i.substation_id).length,
+      resolved: incidents.filter((i) => i.status === "resolved").length,
     };
   }, [incidents]);
 
-  const unassignedIncidents = incidents.filter(
-  (incident) =>
-    !incident.substation_id &&
-    incident.status?.toLowerCase() !== "assigned_to_substation" &&
-    incident.status?.toLowerCase() !== "assigned"
-);
-
-const recentIncidents = unassignedIncidents.slice(0, 10);
+  const unassignedIncidents = incidents.filter((i) => !i.substation_id);
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedIncident?.incident_id) {
-        throw new Error("No incident selected.");
-      }
+      if (!selectedIncident || !selectedSubstation) throw new Error();
 
-      if (!selectedSubstation) {
-        throw new Error("Please select a substation.");
-      }
-
-      const payload = {
+      const res = await api.post("/api/incidents/assign", {
         incident_id: selectedIncident.incident_id,
         substation_id: Number(selectedSubstation),
-      };
+      });
 
-      const res = await api.post("/api/incidents/assign", payload);
       return res.data;
     },
     onSuccess: () => {
@@ -130,39 +95,17 @@ const recentIncidents = unassignedIncidents.slice(0, 10);
       setSelectedSubstation("");
       setAssignError("");
     },
-    onError: (error: any) => {
-      setAssignError(
-        error?.response?.data?.message ||
-          error?.message ||
-          "Failed to assign incident."
-      );
+    onError: () => {
+      setAssignError("Failed to assign incident.");
     },
   });
 
-  const handleOpenAssign = (incident: IncidentRow) => {
-    setSelectedIncident(incident);
-    setSelectedSubstation("");
-    setAssignError("");
-    setIsAssignOpen(true);
-  };
-
-  const handleCloseAssign = () => {
-    setSelectedIncident(null);
-    setSelectedSubstation("");
-    setAssignError("");
-    setIsAssignOpen(false);
-  };
-
-  if (isLoading) {
-    return <PageState type="loading" message="Loading dashboard..." />;
-  }
-
-  if (isError) {
-    return <PageState type="error" message="Failed to load dashboard data." />;
-  }
+  if (isLoading) return <PageState type="loading" message="Loading..." />;
+  if (isError) return <PageState type="error" message="Error loading data." />;
 
   return (
     <div className="space-y-6 p-6">
+      {/* STATS */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Incidents" value={stats.total} />
         <StatCard title="Pending Alerts" value={stats.pending} />
@@ -170,105 +113,87 @@ const recentIncidents = unassignedIncidents.slice(0, 10);
         <StatCard title="Resolved" value={stats.resolved} />
       </div>
 
+      {/* MAIN GRID */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <section className="xl:col-span-3 rounded-2xl border border-gray-200 bg-white shadow-sm">
+        {/* INCIDENTS */}
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm xl:col-span-3">
           <div className="border-b border-gray-200 px-5 py-4">
-            <h2 className="text-xl font-semibold text-gray-900">Incidents</h2>
+            <h2 className="text-xl font-semibold">Pending Incidents</h2>
           </div>
 
-          <div className="max-h-[560px] space-y-4 overflow-y-auto p-5">
-            {recentIncidents.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
-                No incidents available.
-              </div>
-            ) : (
-              recentIncidents.map((incident) => (
-                <IncidentCard
-                  key={incident.incident_id}
-                  incident={incident}
-                  onAssign={() => handleOpenAssign(incident)}
-                />
-              ))
-            )}
+          {/* ✅ SCROLL FIX */}
+          <div className="max-h-[560px] overflow-y-auto space-y-4 p-5">
+            {unassignedIncidents.map((incident) => (
+              <IncidentCard
+                key={incident.incident_id}
+                incident={incident}
+                onAssign={() => {
+                  setSelectedIncident(incident);
+                  setIsAssignOpen(true);
+                }}
+              />
+            ))}
           </div>
         </section>
 
-        <section className="xl:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm">
+        {/* MAP (UNCHANGED) */}
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm xl:col-span-2">
           <div className="border-b border-gray-200 px-5 py-4">
-            <h2 className="text-xl font-semibold text-gray-900">Map</h2>
+            <h2 className="text-xl font-semibold">Map</h2>
           </div>
 
           <div className="p-5">
-            <div className="flex h-[560px] items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50">
-              <div className="text-center">
-                <p className="text-base font-medium text-gray-700">Map placeholder</p>
-                <p className="mt-1 text-sm text-gray-500">
-                  You can connect Google Maps here later.
-                </p>
-              </div>
+            <div className="flex h-[560px] items-center justify-center rounded-2xl border border-dashed border-gray-300">
+              Map placeholder
             </div>
           </div>
         </section>
       </div>
 
+      {/* MODAL (RESTORED) */}
       {isAssignOpen && selectedIncident && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Assign Incident
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">Assign Incident</h2>
 
-            <p className="mt-3 text-sm text-gray-500">
-              Incident ID: {selectedIncident.incident_id}
-            </p>
-            <p className="text-sm text-gray-500">
-              Type: {selectedIncident.incident_type}
-            </p>
-            <p className="text-sm text-gray-500">
-              Location:{" "}
-              {selectedIncident.location_name ||
-                `${selectedIncident.latitude}, ${selectedIncident.longitude}`}
-            </p>
+            <div className="mt-4 text-sm text-gray-500">
+              <p>Incident ID: {selectedIncident.incident_id}</p>
+              <p>Type: {selectedIncident.incident_type}</p>
+              <p>
+                Location:{" "}
+                {selectedIncident.location_name ||
+                  `${selectedIncident.latitude}, ${selectedIncident.longitude}`}
+              </p>
+            </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Substation
-              </label>
+              <label className="text-sm font-medium">Substation</label>
 
               <select
                 value={selectedSubstation}
                 onChange={(e) => setSelectedSubstation(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border px-3 py-2"
               >
-                <option value="">Select substation</option>
-
-                {substations.map((sub: SubstationRow) => (
-                  <option key={sub.substation_id} value={sub.substation_id}>
-                    {sub.substation_name}
+                <option value="">Select Substation</option>
+                {substations.map((s: SubstationRow) => (
+                  <option key={s.substation_id} value={s.substation_id}>
+                    {s.substation_name}
                   </option>
                 ))}
               </select>
 
               {assignError && (
-                <p className="mt-2 text-sm text-red-500">{assignError}</p>
+                <p className="text-red-500 text-sm mt-2">{assignError}</p>
               )}
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={handleCloseAssign}
-                disabled={assignMutation.isPending}
-                className="rounded-lg bg-gray-300 px-4 py-2 text-sm"
-              >
-                Cancel
-              </button>
-
+              <button onClick={() => setIsAssignOpen(false)}>Cancel</button>
               <button
                 onClick={() => assignMutation.mutate()}
-                disabled={assignMutation.isPending || !selectedSubstation}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                className="bg-blue-600 text-white px-4 py-2 rounded"
               >
-                {assignMutation.isPending ? "Assigning..." : "Confirm"}
+                Confirm
               </button>
             </div>
           </div>
@@ -278,94 +203,68 @@ const recentIncidents = unassignedIncidents.slice(0, 10);
   );
 }
 
-function StatCard({ title, value }: { title: string; value: number }) {
+function IncidentCard({ incident, onAssign }: any) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-gray-500">{title}</p>
-      <h3 className="mt-2 text-3xl font-semibold text-gray-900">{value}</h3>
-    </div>
-  );
-}
-
-function IncidentCard({
-  incident,
-  onAssign,
-}: {
-  incident: IncidentRow;
-  onAssign: () => void;
-}) {
-  const alreadyAssigned =
-    incident.status?.toLowerCase() === "assigned_to_substation" ||
-    incident.status?.toLowerCase() === "assigned" ||
-    Boolean(incident.substation_id);
-
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-gray-900">
-            {incident.incident_type || "Incident"}
-          </h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Incident ID: {incident.incident_id}
-          </p>
-        </div>
-
+    <div className="rounded-2xl border border-gray-200 p-4">
+      <div className="flex justify-between">
+        <h3 className="font-semibold">{incident.incident_type}</h3>
         <StatusBadge status={incident.status} />
       </div>
 
-      <p className="mt-3 line-clamp-2 text-sm text-gray-700">
-        {incident.description || "No description provided."}
-      </p>
+      <p className="mt-2 text-sm">{incident.description}</p>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+        <InfoItem label="Location" value={incident.location_name} />
+        <InfoItem label="Source" value={incident.source} />
+
+        {/* ✅ FINAL FORMAT */}
         <InfoItem
-          label="Location"
+          label="Reported at"
           value={
-            incident.location_name ||
-            `${incident.latitude ?? "-"}, ${incident.longitude ?? "-"}`
+            <>
+              {incident.created_at
+                ? new Date(incident.created_at).toLocaleString()
+                : "-"}
+              <br />
+              <span className="text-sm text-black">
+                Name: {incident.reporter_name || "-"}
+              </span>
+            </>
           }
         />
-        <InfoItem label="Source" value={incident.source || "-"} />
-        <InfoItem
-          label="Reported"
-          value={incident.created_at ? formatDateTime(incident.created_at) : "-"}
-        />
+
         <InfoItem
           label="Assigned To"
           value={incident.substation_name || "Not assigned"}
         />
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="flex justify-end mt-4">
         <button
-          type="button"
           onClick={onAssign}
-          disabled={alreadyAssigned}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="bg-blue-600 text-white px-3 py-1 rounded"
         >
-          {alreadyAssigned ? "Assigned" : "Assign"}
+          Assign
         </button>
       </div>
     </div>
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+function InfoItem({ label, value }: any) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-        {label}
-      </p>
-      <p className="mt-1 text-sm text-gray-700">{value}</p>
+      <p className="text-xs text-gray-400">{label}</p>
+      <p>{value}</p>
     </div>
   );
 }
 
-function formatDateTime(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleString();
+function StatCard({ title, value }: any) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <p className="text-sm text-gray-500">{title}</p>
+      <h2 className="text-xl font-bold">{value}</h2>
+    </div>
+  );
 }
