@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/layout/ui/StatusBadge";
 import { api } from "@/api/axios";
 import { fetchIncidents } from "../../api/incidents";
 import { fetchSubstations } from "../../api/substations";
+import EruMap from "@/components/EruMap";
 
 type IncidentRow = {
   incident_id: number;
@@ -24,10 +25,14 @@ type IncidentRow = {
 type SubstationRow = {
   substation_id: number;
   substation_name: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export default function EruDashboard() {
-  const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
+    null
+  );
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [selectedSubstation, setSelectedSubstation] = useState("");
   const [assignError, setAssignError] = useState("");
@@ -54,15 +59,15 @@ export default function EruDashboard() {
       incident_id: item.incident_id,
       incident_type: item.incident_type,
       description: item.description,
-      latitude: item.latitude,
-      longitude: item.longitude,
+      latitude: Number(item.latitude),
+      longitude: Number(item.longitude),
       location_name: item.location_name,
       source: item.source,
       status: item.status || "pending",
       created_at: item.created_at ?? item.reported_at,
       substation_id: item.substation_id ?? null,
       substation_name: item.substation_name ?? null,
-      reporter_name: `${item.first_name} ${item.last_name}`,
+      reporter_name: `${item.first_name ?? ""} ${item.last_name ?? ""}`.trim(),
     }));
   }, [data]);
 
@@ -121,12 +126,13 @@ export default function EruDashboard() {
             <h2 className="text-xl font-semibold">Pending Incidents</h2>
           </div>
 
-          {/* ✅ SCROLL FIX */}
-          <div className="max-h-[560px] overflow-y-auto space-y-4 p-5">
+          <div className="max-h-[560px] space-y-4 overflow-y-auto p-5">
             {unassignedIncidents.map((incident) => (
               <IncidentCard
                 key={incident.incident_id}
                 incident={incident}
+                selected={selectedIncident?.incident_id === incident.incident_id}
+                onSelect={() => setSelectedIncident(incident)}
                 onAssign={() => {
                   setSelectedIncident(incident);
                   setIsAssignOpen(true);
@@ -136,21 +142,24 @@ export default function EruDashboard() {
           </div>
         </section>
 
-        {/* MAP (UNCHANGED) */}
+        {/* MAP */}
         <section className="rounded-2xl border border-gray-200 bg-white shadow-sm xl:col-span-2">
           <div className="border-b border-gray-200 px-5 py-4">
             <h2 className="text-xl font-semibold">Map</h2>
           </div>
 
           <div className="p-5">
-            <div className="flex h-[560px] items-center justify-center rounded-2xl border border-dashed border-gray-300">
-              Map placeholder
+            <div className="h-[560px] overflow-hidden rounded-2xl border border-gray-200">
+              <EruMap
+                selectedIncident={selectedIncident}
+                substations={substations}
+              />
             </div>
           </div>
         </section>
       </div>
 
-      {/* MODAL (RESTORED) */}
+      {/* ASSIGN MODAL */}
       {isAssignOpen && selectedIncident && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -172,9 +181,10 @@ export default function EruDashboard() {
               <select
                 value={selectedSubstation}
                 onChange={(e) => setSelectedSubstation(e.target.value)}
-                className="mt-1 w-full rounded-lg border px-3 py-2"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
               >
                 <option value="">Select Substation</option>
+
                 {substations.map((s: SubstationRow) => (
                   <option key={s.substation_id} value={s.substation_id}>
                     {s.substation_name}
@@ -183,17 +193,30 @@ export default function EruDashboard() {
               </select>
 
               {assignError && (
-                <p className="text-red-500 text-sm mt-2">{assignError}</p>
+                <p className="mt-2 text-sm text-red-500">{assignError}</p>
               )}
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button onClick={() => setIsAssignOpen(false)}>Cancel</button>
               <button
-                onClick={() => assignMutation.mutate()}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
+                type="button"
+                onClick={() => {
+                  setIsAssignOpen(false);
+                  setSelectedSubstation("");
+                  setAssignError("");
+                }}
+                className="rounded-lg bg-gray-300 px-4 py-2 text-sm"
               >
-                Confirm
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => assignMutation.mutate()}
+                disabled={!selectedSubstation || assignMutation.isPending}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {assignMutation.isPending ? "Assigning..." : "Confirm"}
               </button>
             </div>
           </div>
@@ -203,9 +226,14 @@ export default function EruDashboard() {
   );
 }
 
-function IncidentCard({ incident, onAssign }: any) {
+function IncidentCard({ incident, selected, onSelect, onAssign }: any) {
   return (
-    <div className="rounded-2xl border border-gray-200 p-4">
+    <div
+      onClick={onSelect}
+      className={`rounded-2xl border p-4 cursor-pointer transition hover:bg-gray-50 ${
+        selected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+      }`}
+    >
       <div className="flex justify-between">
         <h3 className="font-semibold">{incident.incident_type}</h3>
         <StatusBadge status={incident.status} />
@@ -213,11 +241,10 @@ function IncidentCard({ incident, onAssign }: any) {
 
       <p className="mt-2 text-sm">{incident.description}</p>
 
-      <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <InfoItem label="Location" value={incident.location_name} />
         <InfoItem label="Source" value={incident.source} />
 
-        {/* ✅ FINAL FORMAT */}
         <InfoItem
           label="Reported at"
           value={
@@ -239,10 +266,14 @@ function IncidentCard({ incident, onAssign }: any) {
         />
       </div>
 
-      <div className="flex justify-end mt-4">
+      <div
+        className="mt-4 flex justify-end"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
+          type="button"
           onClick={onAssign}
-          className="bg-blue-600 text-white px-3 py-1 rounded"
+          className="rounded bg-blue-600 px-3 py-1 text-white"
         >
           Assign
         </button>
