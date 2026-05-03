@@ -28,16 +28,21 @@ function RecenterMap({ selectedIncident }: { selectedIncident: any }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!hasValidCoords(selectedIncident)) return;
-
-    map.flyTo(
-      [Number(selectedIncident.latitude), Number(selectedIncident.longitude)],
-      16,
-      {
+    if (hasValidCoords(selectedIncident)) {
+      map.flyTo(
+        [Number(selectedIncident.latitude), Number(selectedIncident.longitude)],
+        16,
+        {
+          animate: true,
+          duration: 0.8,
+        }
+      );
+    } else {
+      map.flyTo([14.5995, 120.9842], 13, {
         animate: true,
         duration: 0.8,
-      }
-    );
+      });
+    }
   }, [selectedIncident, map]);
 
   return null;
@@ -45,17 +50,12 @@ function RecenterMap({ selectedIncident }: { selectedIncident: any }) {
 
 export default function EruMap({ selectedIncident, substations = [] }: any) {
   const defaultPosition: [number, number] = [14.5995, 120.9842];
-
-  const center: [number, number] = hasValidCoords(selectedIncident)
-    ? [Number(selectedIncident.latitude), Number(selectedIncident.longitude)]
-    : defaultPosition;
-
   const validSubstations = substations.filter(hasValidCoords);
 
   return (
     <MapContainer
-      center={center}
-      zoom={13}
+      center={defaultPosition}
+      zoom={12}
       style={{ height: "100%", width: "100%" }}
     >
       <RecenterMap selectedIncident={selectedIncident} />

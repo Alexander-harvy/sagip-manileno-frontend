@@ -9,3 +9,13 @@ body,
 body {
   margin: 0;
 }
+
+/* Fix Leaflet map overlapping modals */
+.leaflet-container,
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom,
+.leaflet-control,
+.leaflet-control-container {
+  z-index: 0 !important;
+}

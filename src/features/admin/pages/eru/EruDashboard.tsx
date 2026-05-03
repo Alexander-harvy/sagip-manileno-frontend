@@ -29,6 +29,37 @@ type SubstationRow = {
   longitude?: number | null;
 };
 
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const R = 6371;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
+function hasValidCoords(item: any) {
+  return (
+    item &&
+    item.latitude !== null &&
+    item.longitude !== null &&
+    item.latitude !== undefined &&
+    item.longitude !== undefined &&
+    !Number.isNaN(Number(item.latitude)) &&
+    !Number.isNaN(Number(item.longitude))
+  );
+}
+
 export default function EruDashboard() {
   const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(
     null
@@ -71,20 +102,63 @@ export default function EruDashboard() {
     }));
   }, [data]);
 
-  const stats = useMemo(() => {
-    return {
-      total: incidents.length,
-      pending: incidents.filter((i) => !i.substation_id).length,
-      assigned: incidents.filter((i) => i.substation_id).length,
-      resolved: incidents.filter((i) => i.status === "resolved").length,
-    };
+  const pendingIncidents = useMemo(() => {
+    return incidents
+      .filter((i) => !i.substation_id)
+      .sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateA - dateB;
+      });
   }, [incidents]);
 
-  const unassignedIncidents = incidents.filter((i) => !i.substation_id);
+  const nearestSubstation = useMemo(() => {
+    if (!selectedIncident || !hasValidCoords(selectedIncident)) return null;
+
+    let nearest: SubstationRow | null = null;
+    let minDistance = Infinity;
+
+    substations.forEach((substation: SubstationRow) => {
+      if (!hasValidCoords(substation)) return;
+
+      const distance = getDistance(
+        Number(selectedIncident.latitude),
+        Number(selectedIncident.longitude),
+        Number(substation.latitude),
+        Number(substation.longitude)
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = substation;
+      }
+    });
+
+    return nearest;
+  }, [selectedIncident, substations]);
+
+  const getSubstationDistanceText = (substation: SubstationRow) => {
+    if (!selectedIncident) return "";
+
+    if (!hasValidCoords(selectedIncident) || !hasValidCoords(substation)) {
+      return "";
+    }
+
+    const distance = getDistance(
+      Number(selectedIncident.latitude),
+      Number(selectedIncident.longitude),
+      Number(substation.latitude),
+      Number(substation.longitude)
+    );
+
+    return `${distance.toFixed(2)} km`;
+  };
 
   const assignMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedIncident || !selectedSubstation) throw new Error();
+      if (!selectedIncident || !selectedSubstation) {
+        throw new Error("Missing incident or substation");
+      }
 
       const res = await api.post("/api/incidents/assign", {
         incident_id: selectedIncident.incident_id,
@@ -109,47 +183,49 @@ export default function EruDashboard() {
   if (isError) return <PageState type="error" message="Error loading data." />;
 
   return (
-    <div className="space-y-6 p-6">
-      {/* STATS */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Incidents" value={stats.total} />
-        <StatCard title="Pending Alerts" value={stats.pending} />
-        <StatCard title="Assigned" value={stats.assigned} />
-        <StatCard title="Resolved" value={stats.resolved} />
-      </div>
-
-      {/* MAIN GRID */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        {/* INCIDENTS */}
-        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm xl:col-span-3">
+    <div className="p-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
+        {/* PENDING INCIDENTS */}
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-5 py-4">
             <h2 className="text-xl font-semibold">Pending Incidents</h2>
           </div>
 
-          <div className="max-h-[560px] space-y-4 overflow-y-auto p-5">
-            {unassignedIncidents.map((incident) => (
-              <IncidentCard
-                key={incident.incident_id}
-                incident={incident}
-                selected={selectedIncident?.incident_id === incident.incident_id}
-                onSelect={() => setSelectedIncident(incident)}
-                onAssign={() => {
-                  setSelectedIncident(incident);
-                  setIsAssignOpen(true);
-                }}
-              />
-            ))}
+          <div className="max-h-[620px] space-y-4 overflow-y-auto p-5">
+            {pendingIncidents.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+                No pending incidents.
+              </div>
+            ) : (
+              pendingIncidents.map((incident, index) => (
+                <IncidentCard
+                  key={incident.incident_id}
+                  index={index + 1}
+                  incident={incident}
+                  selected={
+                    selectedIncident?.incident_id === incident.incident_id
+                  }
+                  onSelect={() => setSelectedIncident(incident)}
+                  onAssign={() => {
+                    setSelectedIncident(incident);
+                    setIsAssignOpen(true);
+                    setSelectedSubstation("");
+                    setAssignError("");
+                  }}
+                />
+              ))
+            )}
           </div>
         </section>
 
         {/* MAP */}
-        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm xl:col-span-2">
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-5 py-4">
             <h2 className="text-xl font-semibold">Map</h2>
           </div>
 
           <div className="p-5">
-            <div className="h-[560px] overflow-hidden rounded-2xl border border-gray-200">
+            <div className="h-[620px] overflow-hidden rounded-2xl border border-gray-200">
               <EruMap
                 selectedIncident={selectedIncident}
                 substations={substations}
@@ -185,11 +261,25 @@ export default function EruDashboard() {
               >
                 <option value="">Select Substation</option>
 
-                {substations.map((s: SubstationRow) => (
-                  <option key={s.substation_id} value={s.substation_id}>
-                    {s.substation_name}
-                  </option>
-                ))}
+                {substations.map((s: SubstationRow) => {
+                  const isRecommended =
+                    nearestSubstation?.substation_id === s.substation_id;
+
+                  const distanceText = getSubstationDistanceText(s);
+
+                  return (
+                    <option key={s.substation_id} value={s.substation_id}>
+                      {s.substation_name}
+                      {isRecommended
+                        ? ` (Recommended${
+                            distanceText ? ` - ${distanceText}` : ""
+                          })`
+                        : distanceText
+                        ? ` - ${distanceText}`
+                        : ""}
+                    </option>
+                  );
+                })}
               </select>
 
               {assignError && (
@@ -226,76 +316,70 @@ export default function EruDashboard() {
   );
 }
 
-function IncidentCard({ incident, selected, onSelect, onAssign }: any) {
+function IncidentCard({ index, incident, selected, onSelect, onAssign }: any) {
   return (
-    <div
-      onClick={onSelect}
-      className={`rounded-2xl border p-4 cursor-pointer transition hover:bg-gray-50 ${
-        selected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
-      }`}
-    >
-      <div className="flex justify-between">
-        <h3 className="font-semibold">{incident.incident_type}</h3>
-        <StatusBadge status={incident.status} />
-      </div>
-
-      <p className="mt-2 text-sm">{incident.description}</p>
-
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <InfoItem label="Location" value={incident.location_name} />
-        <InfoItem label="Source" value={incident.source} />
-
-        <InfoItem
-          label="Reported at"
-          value={
-            <>
-              {incident.created_at
-                ? new Date(incident.created_at).toLocaleString()
-                : "-"}
-              <br />
-              <span className="text-sm text-black">
-                Name: {incident.reporter_name || "-"}
-              </span>
-            </>
-          }
-        />
-
-        <InfoItem
-          label="Assigned To"
-          value={incident.substation_name || "Not assigned"}
-        />
-      </div>
+    <div className="flex gap-4">
+      <div className="pt-7 text-sm font-medium text-gray-500">{index}</div>
 
       <div
-        className="mt-4 flex justify-end"
-        onClick={(e) => e.stopPropagation()}
+        onClick={onSelect}
+        className={`flex-1 cursor-pointer rounded-2xl border p-4 transition hover:bg-gray-50 ${
+          selected ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+        }`}
       >
-        <button
-          type="button"
-          onClick={onAssign}
-          className="rounded bg-blue-600 px-3 py-1 text-white"
-        >
-          Assign
-        </button>
+        <div className="flex justify-between gap-4">
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              {incident.incident_type}
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-700">
+              {incident.description || "-"}
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-xs text-gray-400">Location</p>
+                <p>{incident.location_name || "-"}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-400">Reported at</p>
+                <p>
+                  {incident.created_at
+                    ? new Date(incident.created_at).toLocaleString()
+                    : "-"}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-400">Name</p>
+                <p>{incident.reporter_name || "-"}</p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-400">Source</p>
+                <p>{incident.source || "-"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex min-w-[90px] flex-col items-end justify-between">
+            <StatusBadge status={incident.status} />
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAssign();
+              }}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+            >
+              Assign
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }: any) {
-  return (
-    <div>
-      <p className="text-xs text-gray-400">{label}</p>
-      <p>{value}</p>
-    </div>
-  );
-}
-
-function StatCard({ title, value }: any) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-sm text-gray-500">{title}</p>
-      <h2 className="text-xl font-bold">{value}</h2>
     </div>
   );
 }

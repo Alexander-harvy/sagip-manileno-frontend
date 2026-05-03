@@ -37,6 +37,8 @@ function LoginPage() {
         substation_id: result.admin.substation_id,
         username: result.admin.username,
         role: result.admin.role,
+        email: result.admin.email,
+        contact_no: result.admin.contact_no,
       });
 
       navigate("/", { replace: true });
