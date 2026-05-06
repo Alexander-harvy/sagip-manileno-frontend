@@ -45,9 +45,16 @@ export default function OfflineLogsPage() {
   }));
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">Offline Logs</h1>
-      <Table columns={columns} data={formattedData} />
+    <div className="min-h-screen bg-white p-6 select-none">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-slate-900">
+          Offline Logs
+        </h1>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <Table columns={columns} data={formattedData} />
+      </div>
     </div>
   );
 }

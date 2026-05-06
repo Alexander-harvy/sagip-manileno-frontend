@@ -154,6 +154,35 @@ export default function EruDashboard() {
     return `${distance.toFixed(2)} km`;
   };
 
+
+const sortedSubstations = useMemo(() => {
+  if (!selectedIncident) return substations;
+
+  return [...substations].sort((a: SubstationRow, b: SubstationRow) => {
+    if (!hasValidCoords(selectedIncident)) return 0;
+
+    if (!hasValidCoords(a)) return 1;
+    if (!hasValidCoords(b)) return -1;
+
+    const distanceA = getDistance(
+      Number(selectedIncident.latitude),
+      Number(selectedIncident.longitude),
+      Number(a.latitude),
+      Number(a.longitude)
+    );
+
+    const distanceB = getDistance(
+      Number(selectedIncident.latitude),
+      Number(selectedIncident.longitude),
+      Number(b.latitude),
+      Number(b.longitude)
+    );
+
+    return distanceA - distanceB;
+  });
+}, [selectedIncident, substations]);
+
+
   const assignMutation = useMutation({
     mutationFn: async () => {
       if (!selectedIncident || !selectedSubstation) {
@@ -183,11 +212,11 @@ export default function EruDashboard() {
   if (isError) return <PageState type="error" message="Error loading data." />;
 
   return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.4fr_1fr]">
         {/* PENDING INCIDENTS */}
         <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-5 py-4">
+          <div className="border-b border-gray-200 px-5 py-3">
             <h2 className="text-xl font-semibold">Pending Incidents</h2>
           </div>
 
@@ -261,7 +290,7 @@ export default function EruDashboard() {
               >
                 <option value="">Select Substation</option>
 
-                {substations.map((s: SubstationRow) => {
+               {sortedSubstations.map((s: SubstationRow) => {
                   const isRecommended =
                     nearestSubstation?.substation_id === s.substation_id;
 
@@ -286,6 +315,7 @@ export default function EruDashboard() {
                 <p className="mt-2 text-sm text-red-500">{assignError}</p>
               )}
             </div>
+            
 
             <div className="mt-6 flex justify-end gap-2">
               <button

@@ -34,13 +34,10 @@ type AdminUser = {
 
 const API_BASE_URL = "http://localhost:3000/api";
 
-
 export default function SettingsPage() {
-const [searchParams] = useSearchParams();
-const defaultTab =
-(searchParams.get("tab") as SettingsTab) || "account";
-const [activeTab, setActiveTab] =
-useState<SettingsTab>(defaultTab);
+  const [searchParams] = useSearchParams();
+  const defaultTab = (searchParams.get("tab") as SettingsTab) || "account";
+  const [activeTab, setActiveTab] = useState<SettingsTab>(defaultTab);
 
   const [isEditing, setIsEditing] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -88,6 +85,7 @@ useState<SettingsTab>(defaultTab);
   const getToken = () => {
     return (
       (storage as any).getToken?.() ||
+      localStorage.getItem("admin_token") ||
       localStorage.getItem("token") ||
       localStorage.getItem("adminToken") ||
       ""
@@ -207,12 +205,14 @@ useState<SettingsTab>(defaultTab);
 
   return (
     <>
-      <div className="min-h-screen bg-slate-100 p-6">
-        <div className="mx-auto max-w-[1400px] rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="mb-8 text-2xl font-semibold text-slate-900">
+      <div className="min-h-screen bg-white p-6 select-none">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-slate-900">
             Settings
           </h1>
+        </div>
 
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="grid gap-8 lg:grid-cols-[300px_1fr]">
             <aside className="space-y-2">
               {menuItems.map((item) => {
@@ -338,8 +338,7 @@ useState<SettingsTab>(defaultTab);
                     Offline Settings (SMS)
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Configure SMS fallback for emergency alerts when internet is
-                    unavailable.
+                    Configure SMS fallback for emergency alerts when internet is unavailable.
                   </p>
 
                   <div className="mt-6 space-y-5">

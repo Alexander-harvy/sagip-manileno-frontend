@@ -9,7 +9,7 @@ function AppLayout() {
 
       <div className="flex flex-1 flex-col">
         <Header />
-        <main className="flex-1 p-6">
+        <main className="flex-1 px-6 py-4">
           <Outlet />
         </main>
       </div>
