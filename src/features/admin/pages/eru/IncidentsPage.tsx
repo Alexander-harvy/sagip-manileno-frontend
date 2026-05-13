@@ -193,14 +193,6 @@ export default function IncidentsPage() {
     setSelectedYear("");
   };
 
-  const hasActiveFilter =
-    statusFilter !== "all" ||
-    dateFilterType !== "none" ||
-    selectedDate !== "" ||
-    selectedWeek !== "" ||
-    selectedMonth !== "" ||
-    selectedYear !== "";
-
   if (isLoading) {
     return <PageState type="loading" message="Loading incident logs..." />;
   }
@@ -280,99 +272,97 @@ export default function IncidentsPage() {
           incident log(s)
         </p>
 
-        <div className="flex items-center gap-2">
-          {hasActiveFilter && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              Reset
-            </button>
-          )}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFilter((prev) => !prev)}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Add filter
+          </button>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowFilter((prev) => !prev)}
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              Add filter
-            </button>
+          {showFilter && (
+            <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Filter by date
+              </label>
 
-            {showFilter && (
-              <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-lg">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Filter by date
-                </label>
+              <select
+                value={dateFilterType}
+                onChange={(e) =>
+                  setDateFilterType(e.target.value as DateFilterType)
+                }
+                className="mb-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              >
+                <option value="none">No date filter</option>
+                <option value="day">Specific day</option>
+                <option value="week">Specific week</option>
+                <option value="month">Specific month</option>
+                <option value="year">Specific year</option>
+              </select>
 
-                <select
-                  value={dateFilterType}
-                  onChange={(e) =>
-                    setDateFilterType(e.target.value as DateFilterType)
-                  }
-                  className="mb-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              {dateFilterType === "day" && (
+                <input
+                  type="text"
+                  placeholder="MM/DD/YYYY"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              )}
+
+              {dateFilterType === "week" && (
+                <input
+                  type="week"
+                  value={selectedWeek}
+                  onChange={(e) => setSelectedWeek(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              )}
+
+              {dateFilterType === "month" && (
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              )}
+
+              {dateFilterType === "year" && (
+                <input
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  placeholder="Enter year, e.g. 2026"
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              )}
+
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetFilters();
+                    setShowFilter(false);
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  <option value="none">No date filter</option>
-                  <option value="day">Specific day</option>
-                  <option value="week">Specific week</option>
-                  <option value="month">Specific month</option>
-                  <option value="year">Specific year</option>
-                </select>
+                  Cancel
+                </button>
 
-                {dateFilterType === "day" && (
-                  <input
-                    type="text"
-                    placeholder="MM/DD/YYYY"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                )}
-
-                {dateFilterType === "week" && (
-                  <input
-                    type="week"
-                    value={selectedWeek}
-                    onChange={(e) => setSelectedWeek(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                )}
-
-                {dateFilterType === "month" && (
-                  <input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                )}
-
-                {dateFilterType === "year" && (
-                  <input
-                    type="number"
-                    min="2000"
-                    max="2100"
-                    placeholder="Enter year, e.g. 2026"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                )}
-
-                <div className="mt-4 flex justify-end gap-2">
-
-                  <button
-                    type="button"
-                    onClick={() => setShowFilter(false)}
-                    className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white"
-                  >
-                    Apply
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFilter(false)}
+                  className="rounded-md bg-slate-900 px-3 py-2 text-sm text-white"
+                >
+                  Apply
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
