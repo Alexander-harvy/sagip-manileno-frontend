@@ -9,18 +9,9 @@ import { fetchIncidents } from "@/features/admin/api/incidents";
 import { getResponders } from "@/features/admin/api/responders";
 import { api } from "@/api/axios";
 
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
 const incidentIcon = new L.Icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-  iconSize: [18, 30],
-  iconAnchor: [9, 30],
-  popupAnchor: [1, -24],
-  shadowSize: [30, 30],
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+  iconSize: [32, 32],
 });
 
 type Incident = {
@@ -59,7 +50,7 @@ function getStatusLabel(status?: string) {
 function getStatusStyles(status?: string) {
   switch (status) {
     case "assigned_to_substation":
-      return "text-orange-600";
+      return "text-yellow-600";
     case "responder_assigned":
       return "text-blue-600";
     case "en_route":
@@ -69,7 +60,7 @@ function getStatusStyles(status?: string) {
     case "resolved":
       return "text-green-600";
     default:
-      return "text-gray-600";
+      return "text-slate-600";
   }
 }
 
@@ -124,6 +115,7 @@ export default function SubstationDashboard() {
         const aTime = a.reported_at
           ? new Date(a.reported_at).getTime()
           : a.incident_id;
+
         const bTime = b.reported_at
           ? new Date(b.reported_at).getTime()
           : b.incident_id;
@@ -132,25 +124,26 @@ export default function SubstationDashboard() {
       });
   }, [data]);
 
- const assignedIncidents = incidents.filter(
-  (incident) =>
-    incident.substation_id &&
-    incident.status === "assigned_to_substation"
-);
-
-  const waitingResponder = assignedIncidents.filter(
+  const queueIncidents = incidents.filter(
     (incident) =>
-      incident.status === "assigned_to_substation" && !incident.responder_id
+      incident.substation_id &&
+      incident.status === "assigned_to_substation"
   );
 
-  const inProgress = assignedIncidents.filter((incident) =>
-    ["responder_assigned", "en_route", "on_scene"].includes(
-      incident.status || ""
-    )
+  const waitingResponder = queueIncidents.filter(
+    (incident) => !incident.responder_id
   );
 
-  const resolved = assignedIncidents.filter(
-    (incident) => incident.status === "resolved"
+  const inProgress = incidents.filter(
+    (incident) =>
+      incident.substation_id &&
+      ["responder_assigned", "en_route", "on_scene"].includes(
+        incident.status || ""
+      )
+  );
+
+  const resolved = incidents.filter(
+    (incident) => incident.substation_id && incident.status === "resolved"
   );
 
   const selectedPosition: [number, number] | null =
@@ -194,16 +187,7 @@ export default function SubstationDashboard() {
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
       queryClient.invalidateQueries({ queryKey: ["responders"] });
 
-      setSelectedIncident((previous) =>
-        previous
-          ? {
-              ...previous,
-              status: "responder_assigned",
-              responder_id: Number(selectedResponder),
-            }
-          : previous
-      );
-
+      setSelectedIncident(null);
       setSuccessMessage("Responder assigned successfully.");
       setIsResponderModalOpen(false);
       setSelectedResponder("");
@@ -225,60 +209,58 @@ export default function SubstationDashboard() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+    <div className="min-h-screen bg-white p-6 select-none">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-slate-900">
           Substation Emergency Dashboard
         </h1>
       </div>
 
       {successMessage && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
           {successMessage}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard
-          title="Assigned Incidents"
-          value={assignedIncidents.length}
-          color="border-orange-500"
-        />
-        <StatCard
-          title="Waiting Responder"
+          title="Pending Assignment"
           value={waitingResponder.length}
-          color="border-yellow-500"
+          valueClassName="text-yellow-600"
         />
+
         <StatCard
           title="Active Response"
           value={inProgress.length}
-          color="border-blue-500"
+          valueClassName="text-blue-600"
         />
+
         <StatCard
           title="Resolved"
           value={resolved.length}
-          color="border-green-500"
+          valueClassName="text-green-600"
         />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-slate-900">
               Incident Queue
             </h2>
+
             <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
-            Live
-          </span>
+              Live
+            </span>
           </div>
 
           <div className="max-h-[520px] space-y-3 overflow-y-auto">
-            {assignedIncidents.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
+            {queueIncidents.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
                 No incidents assigned to this substation.
               </div>
             ) : (
-              assignedIncidents.map((incident) => {
+              queueIncidents.map((incident) => {
                 const isSelected =
                   selectedIncident?.incident_id === incident.incident_id;
 
@@ -292,17 +274,17 @@ export default function SubstationDashboard() {
                     }}
                     className={`cursor-pointer rounded-xl border p-4 transition ${
                       isSelected
-                        ? "border-gray-300 bg-gray-50"
-                        : "border-gray-200 hover:bg-gray-50"
+                        ? "border-slate-900 bg-slate-50"
+                        : "border-slate-200 hover:bg-slate-50"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="font-semibold text-gray-900">
+                        <h3 className="font-semibold text-slate-900">
                           {incident.incident_type}
                         </h3>
 
-                        <p className="mt-1 text-xs text-gray-500">
+                        <p className="mt-1 text-xs text-slate-500">
                           Incident ID: {incident.incident_id}
                         </p>
                       </div>
@@ -316,11 +298,11 @@ export default function SubstationDashboard() {
                       </span>
                     </div>
 
-                    <p className="mt-3 text-sm text-gray-700">
+                    <p className="mt-3 text-sm text-slate-700">
                       {incident.location_name || "Unknown location"}
                     </p>
 
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-sm text-slate-600">
                       Responder:{" "}
                       <span className="font-medium">
                         {getResponderName(incident.responder_id)}
@@ -333,20 +315,20 @@ export default function SubstationDashboard() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-5 text-lg font-semibold text-gray-900">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-5 text-lg font-semibold text-slate-900">
             Incident Details
           </h2>
 
           {!selectedIncident ? (
-            <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-gray-300 text-sm text-gray-500">
+            <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-slate-300 text-sm text-slate-500">
               Select an incident to view details and location.
             </div>
           ) : (
             <>
-              <div className="mb-4 space-y-3 text-sm text-gray-700">
+              <div className="mb-4 space-y-3 text-sm text-slate-700">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-gray-900">Status:</span>
+                  <span className="font-semibold text-slate-900">Status:</span>
 
                   <span
                     className={`text-sm font-semibold ${getStatusStyles(
@@ -358,33 +340,35 @@ export default function SubstationDashboard() {
                 </div>
 
                 <p>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-slate-900">
                     Description:
                   </span>{" "}
                   {selectedIncident.description || "No description"}
                 </p>
 
                 <p>
-                  <span className="font-semibold text-gray-900">Location:</span>{" "}
+                  <span className="font-semibold text-slate-900">Location:</span>{" "}
                   {selectedIncident.location_name || "Unknown"}
                 </p>
 
                 <p>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-slate-900">
                     Reported by:
                   </span>{" "}
                   {reporterName}
                 </p>
 
                 <p>
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-slate-900">
                     Contact Number:
                   </span>{" "}
                   {selectedIncident.contact_no || "N/A"}
                 </p>
 
                 <p>
-                  <span className="font-semibold text-gray-900">Responder:</span>{" "}
+                  <span className="font-semibold text-slate-900">
+                    Responder:
+                  </span>{" "}
                   {getResponderName(selectedIncident.responder_id)}
                 </p>
 
@@ -413,7 +397,7 @@ export default function SubstationDashboard() {
                 </div>
               </div>
 
-              <div className="h-[300px] overflow-hidden rounded-xl border border-gray-200">
+              <div className="h-[300px] overflow-hidden rounded-xl border border-slate-200">
                 {selectedPosition ? (
                   <MapContainer
                     center={selectedPosition}
@@ -439,7 +423,7 @@ export default function SubstationDashboard() {
                     </Marker>
                   </MapContainer>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                  <div className="flex h-full items-center justify-center text-sm text-slate-500">
                     No coordinates available for this incident.
                   </div>
                 )}
@@ -452,23 +436,23 @@ export default function SubstationDashboard() {
       {isResponderModalOpen && selectedIncident && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-slate-900">
               Assign Responder
             </h2>
 
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-slate-500">
               Select a responder for Incident ID: {selectedIncident.incident_id}
             </p>
 
             <div className="mt-5">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-slate-700">
                 Responder
               </label>
 
               <select
                 value={selectedResponder}
                 onChange={(event) => setSelectedResponder(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
               >
                 <option value="">Select responder</option>
 
@@ -483,7 +467,7 @@ export default function SubstationDashboard() {
               </select>
 
               {responders.length === 0 && (
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-slate-500">
                   No responders available for this substation.
                 </p>
               )}
@@ -501,7 +485,7 @@ export default function SubstationDashboard() {
                   setSelectedResponder("");
                   setActionError("");
                 }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -527,17 +511,19 @@ export default function SubstationDashboard() {
 function StatCard({
   title,
   value,
-  color,
+  valueClassName,
 }: {
   title: string;
   value: number;
-  color: string;
+  valueClassName: string;
 }) {
   return (
-    <div className={`rounded-2xl border-l-4 bg-white p-5 shadow-sm ${color}`}>
-      <p className="text-sm font-medium text-gray-500">{title}</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm">
+      <p className="text-sm text-slate-500">{title}</p>
 
-      <h3 className="mt-2 text-3xl font-bold text-gray-900">{value}</h3>
+      <p className={`mt-1 text-2xl font-semibold ${valueClassName}`}>
+        {value}
+      </p>
     </div>
   );
 }

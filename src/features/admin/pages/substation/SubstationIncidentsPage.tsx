@@ -88,18 +88,19 @@ export default function SubstationIncidentsPage() {
   }
 
   return (
-    <div className="space-y-5 p-6">
+     <div className="min-h-screen bg-white p-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Incident Logs</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          View incidents that already have assigned responders or active response
-          updates.
-        </p>
+        <div className="mb-5">
+       <h1 className="text-2xl font-semibold text-black">
+        Incident Logs
+        </h1>
+        </div>
       </div>
+      
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <table className="w-full border-collapse text-left">
-          <thead className="border-b bg-gray-50 text-sm text-gray-600">
+          <thead className="border-b bg-gray-50 text-sm text-black-600">
             <tr>
               <th className="px-5 py-4 font-semibold">ID</th>
               <th className="px-5 py-4 font-semibold">Type</th>
